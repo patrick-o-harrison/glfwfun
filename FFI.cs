@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using System.Text;
+using System.Numerics;
+using System.Drawing;
 
 namespace GLFWFun
 {
@@ -89,6 +91,14 @@ namespace GLFWFun
             glGetErrorPtr = getFunction<glGetError>();
             glGetStringiPtr = getFunction<glGetStringi>();
             glGetIntegervPtr = getFunction<glGetIntegerv>();
+            glGetUniformLocationPtr = getFunction<glGetUniformLocation>();
+            glUniformMatrix4fvPtr = getFunction<glUniformMatrix4fv>();
+            glEnablePtr = getFunction<glEnable>();
+            glDepthFuncPtr = getFunction<glDepthFunc>();
+            glGenTexturesPtr = getFunction<glGenTextures>();
+            glBindTexturePtr = getFunction<glBindTexture>();
+            glTexImage2DPtr = getFunction<glTexImage2D>();
+            glTexParameteriPtr = getFunction<glTexParameteri>();
         }
 
         // Delegates.
@@ -128,6 +138,16 @@ namespace GLFWFun
         private delegate uint glGetError();
         private delegate IntPtr glGetStringi(uint name, int index);
         private delegate void glGetIntegerv(uint name, ref int value);
+        private delegate int glGetUniformLocation(uint program, string name);
+        private delegate void glUniformMatrix4fv(int location, int count, byte transpose, IntPtr value);
+        private delegate void glEnable(uint cap);
+        private delegate void glDepthFunc(uint func);
+        private delegate void glGenTextures(int count, IntPtr textures);
+        private delegate void glBindTexture(uint target, uint texture);
+        private delegate void glTexImage2D(
+            uint target, int level, int internalformat, uint width, uint height,
+            int border, uint format, uint type, IntPtr data);
+        private delegate void glTexParameteri(uint target, uint pname, int param);
 
 
         // Static pointers to delegates.
@@ -159,6 +179,14 @@ namespace GLFWFun
         private static glGetError glGetErrorPtr;
         private static glGetStringi glGetStringiPtr;
         private static glGetIntegerv glGetIntegervPtr;
+        private static glGetUniformLocation glGetUniformLocationPtr;
+        private static glUniformMatrix4fv glUniformMatrix4fvPtr;
+        private static glEnable glEnablePtr;
+        private static glDepthFunc glDepthFuncPtr;
+        private static glGenTextures glGenTexturesPtr;
+        private static glBindTexture glBindTexturePtr;
+        private static glTexImage2D glTexImage2DPtr;
+        private static glTexParameteri glTexParameteriPtr;
 
         [MethodImplAttribute(MethodImplOptions.NoInlining)]
         private static void checkError()
@@ -384,12 +412,14 @@ namespace GLFWFun
             const int buffer_limit = 256; // Make the security flaw less bad.
             IntPtr strPtr = glGetStringiPtr(name, index);
             byte[] buffer = new byte[buffer_limit];
-            unsafe {
+            unsafe
+            {
                 byte* str = (byte*)strPtr.ToPointer();
                 int i = 0;
-                do {
+                do
+                {
                     buffer[i] = *str;
-                } while( ++i < buffer_limit && *str++ != 0);
+                } while (++i < buffer_limit && *str++ != 0);
             }
             checkError();
             return Encoding.ASCII.GetString(buffer);
@@ -406,6 +436,83 @@ namespace GLFWFun
             return glGetErrorPtr();
         }
 
+        public static int GetUniformLocation(uint program, string name)
+        {
+            int location = glGetUniformLocationPtr(program, name);
+            checkError();
+            return location;
+        }
+
+        public static void UniformMatrix4fv(int uniform, bool transpose, Matrix4x4 matrix)
+        {
+            unsafe
+            {
+                glUniformMatrix4fvPtr(uniform, 1, transpose ? True : False, new IntPtr(&matrix));
+            }
+            checkError();
+        }
+
+        public static void Enable(uint capability)
+        {
+            glEnablePtr(capability);
+            checkError();
+        }
+
+        public static void DepthFunc(uint function)
+        {
+            glDepthFuncPtr(function);
+            checkError();
+        }
+
+        public static uint GenTexture()
+        {
+            uint textureId = 0;
+            unsafe
+            {
+                glGenTexturesPtr(1, new IntPtr(&textureId));
+            }
+            checkError();
+            return textureId;
+        }
+
+        public static void BindTexture(uint target, uint texture)
+        {
+            glBindTexturePtr(target, texture);
+        }
+
+        public static void TexImage2D(uint target, int mipMapLevel, Bitmap image)
+        {
+            uint width = (uint)image.Width;
+            uint height = (uint)image.Height;
+            byte[] pixelBytes = new byte[3 * width * height];
+            for (uint x = 0; x < width; x++)
+            {
+                for (uint y = 0; y < width; y++)
+                {
+                    Color color = image.GetPixel((int)x, (int)y);
+                    uint offset = x + y * width;
+                    pixelBytes[offset] = color.R;
+                    pixelBytes[offset + 1] = color.G;
+                    pixelBytes[offset + 2] = color.B;
+                }
+            }
+            unsafe
+            {
+                fixed (byte* pixelBytesPtr = pixelBytes)
+                {
+                    glTexImage2DPtr(
+                        target, mipMapLevel, (int)RGB, width, height, 0, BGR, UnsignedByte, new IntPtr(pixelBytesPtr));
+                }
+            }
+            checkError();
+        }
+
+        public static void TexParameteri(uint target, uint pname, uint param)
+        {
+            glTexParameteriPtr(target, pname, (int)param);
+            checkError();
+        }
+
         public const byte False = 0;
         public const byte True = 1;
         public const uint FragmentShader = 0x8b30;
@@ -419,8 +526,17 @@ namespace GLFWFun
         public const uint StaticDraw = 0x88e4;
         public const uint Triangles = 0x0004;
         public const uint Float = 0x1406;
+        public const uint UnsignedByte = 0x1401;
         public const uint Extensions = 0x1f03;
         public const uint NumExtensions = 0x821d;
         public const uint NoError = 0;
+        public const uint DepthTest = 0x0b71;
+        public const uint Less = 0x0201;
+        public const uint Texture2D = 0x0de1;
+        public const uint RGB = 0x1907;
+        public const uint BGR = 0x80e0;
+        public const uint TextureMinFilter = 0x2801;
+        public const uint TextureMagFilter = 0x2800;
+        public const uint Nearest = 0x2600;
     }
 }

@@ -490,7 +490,7 @@ namespace GLFWFun
                 for (uint y = 0; y < width; y++)
                 {
                     Color color = image.GetPixel((int)x, (int)y);
-                    uint offset = x + y * width;
+                    uint offset = (x + y * width) * 3;
                     pixelBytes[offset] = color.R;
                     pixelBytes[offset + 1] = color.G;
                     pixelBytes[offset + 2] = color.B;
